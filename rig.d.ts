@@ -328,9 +328,48 @@ export const phys: Phys;
 export const mesh: Mesh;
 export const version: string;
 
+/** One thing that happens during a report's run, at its time in seconds. */
+export interface ReportStep {
+  at: number;
+  event?: string; data?: any;
+  inputs?: Inputs;
+  fire?: string;
+  go?: string; fade?: number;
+  look?: Point | null;
+  feed?: Record<string, number>;
+  set?: Pose;
+  attach?: [slot: string, name: string | null, seconds?: number];
+  skin?: string;
+  kick?: Record<string, number>;
+}
+export interface ReportOptions { seconds?: number; fps?: number; seed?: number; name?: string; script?: ReportStep[] }
+export interface Report {
+  /** false when the definition has a mistake, a channel is not a number, or a script step names something missing */
+  ok: boolean;
+  name: string;
+  seconds: number;
+  /** the whole report as lines of text */
+  text: string;
+  warnings: string[];
+  problems: string[];
+  notes: string[];
+  /** seconds spent in each state */
+  states: Record<string, number>;
+  layers: Record<string, number>[];
+  played: Record<string, { state: boolean; shots: number }>;
+  never: { clips: string[]; states: string[]; reactions: string[]; still: string[] };
+  channels: Record<string, { rest: number; min: number | null; max: number | null; moved: boolean }>;
+  /** clip events, counted */
+  events: Record<string, number>;
+  /** what each slot showed */
+  slots: Record<string, string[]>;
+}
+/** Play a definition for a few seconds without a screen and say what moved, what played and what never did. */
+export function report(def: RigDef, options?: ReportOptions): Report;
+
 declare const Rig: {
   create: typeof create; audience: typeof audience; expose: typeof expose; lab: typeof lab; sample: typeof sample;
-  ease: typeof ease; bones: Bones; phys: Phys; mesh: Mesh; version: string;
+  ease: typeof ease; bones: Bones; phys: Phys; mesh: Mesh; report: typeof report; version: string;
 };
 export default Rig;
 export as namespace Rig;

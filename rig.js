@@ -1,4 +1,4 @@
-/*! rig.js 3.8.0 | MIT licence | a small animation rig for 2D characters that react.
+/*! rig.js 3.9.0 | MIT licence | a small animation rig for 2D characters that react.
  *
  * A character is a rest pose of named channels ("body.sy", "eye.x"), keyframed clips, a state machine driven by inputs,
  * one-shots that add on top (a blink, a startle), springs, a gaze and a breath. The rig only computes numbers: you read the
@@ -1634,5 +1634,194 @@
       }
     },
   };
-  return { create, audience, ease: E, sample, bones, phys, mesh, lab, expose, version: '3.8.0' };
+  // ---- a definition read back without a screen: play it for a few seconds and say what moved, what played and what never did.
+  //   Rig.report(def, { seconds: 6, fps: 60, seed: 1, name: 'pip', script: [{ at: 1, event: 'poke' }, { at: 2, inputs: { fear: 1 } }] })
+  // A script step happens at its time (seconds) and may carry: event (+ data), inputs, fire, go (+ fade), look ([x, y] or null),
+  // feed, set, attach ([slot, name, seconds?]), skin, kick ({ channel: velocity }).
+  // Returns { ok, text, warnings, problems, notes, states, layers, played, never, channels, events, slots }. ok is false when the
+  // definition has a mistake (rig.warnings), a channel is not a number, or a script step names something the rig does not have.
+  function report(def, o) {
+    o = o || {};
+    const secs = o.seconds > 0 ? +o.seconds : 6,
+      fps = o.fps > 0 ? +o.fps : 60,
+      dt = 1 / fps,
+      frames = Math.round(secs * fps);
+    const rig = create(def, o.seed),
+      d = rig.def,
+      r3 = (v) => Math.round(v * 1000) / 1000;
+    const log = [],
+      note0 = rig.note;
+    rig.note = (e) => {
+      log.push(e);
+      note0(e);
+    };
+    const script = (o.script || []).slice().sort((a, b) => (a.at || 0) - (b.at || 0)),
+      problems = [],
+      sent = {};
+    const states = {},
+      layers = rig.layers.map(() => ({})),
+      ch = {},
+      slots = {};
+    const see = (k, v) => {
+      const c = ch[k] || (ch[k] = { rest: d.rest[k] || 0, min: Infinity, max: -Infinity, bad: false });
+      if (typeof v !== 'number' || !isFinite(v)) c.bad = true;
+      else {
+        if (v < c.min) c.min = v;
+        if (v > c.max) c.max = v;
+      }
+    };
+    const run = (s) => {
+      if (s.inputs) Object.assign(rig.inputs, s.inputs);
+      if (s.feed) rig.feed(s.feed);
+      if (s.set) rig.set(s.set);
+      if (s.event != null) {
+        sent[s.event] = (sent[s.event] || 0) + 1;
+        if (!(d.on && s.event in d.on))
+          problems.push(`the script sends the event ${s.event}, which def.on does not have`);
+        else rig.event(s.event, s.data);
+      }
+      if (s.fire != null && !rig.fire(s.fire))
+        problems.push(`the script fires ${s.fire}, which def.clips does not have`);
+      if (s.go != null) {
+        if (s.go in d.states) rig.go(s.go, s.fade);
+        else problems.push(`the script goes to state ${s.go}, which does not exist`);
+      }
+      if ('look' in s) s.look ? rig.lookAt(s.look[0], s.look[1]) : rig.lookAt(null);
+      if (s.attach) rig.attach(s.attach[0], s.attach[1], s.attach[2]);
+      if (s.skin != null) rig.skin(s.skin);
+      for (const k in s.kick || {}) rig.kick(k, s.kick[k]);
+    };
+    // the clips a state plays this frame: its clip, or the clips of its blend that weigh something at the input's value now
+    const inState = {},
+      heard = (v) => {
+        if (typeof v === 'string') inState[v] = true;
+        else if (v && v.clips && v.clips.length) {
+          const cs = v.clips.slice().sort((a, b) => a[0] - b[0]),
+            x = v.blend in rig.smoothed ? rig.smoothed[v.blend] : rig.inputs[v.blend] || 0;
+          let i = 0;
+          while (i < cs.length - 1 && x >= cs[i + 1][0]) i++;
+          inState[cs[i][1]] = true;
+          if (i < cs.length - 1 && x > cs[i][0] + 1e-3) inState[cs[i + 1][1]] = true;
+        }
+      };
+    let si = 0;
+    const counts = {};
+    for (let f = 0; f < frames; f++) {
+      const t = f * dt;
+      while (si < script.length && (script[si].at || 0) <= t + 1e-9) run(script[si++]);
+      rig.update(dt);
+      if (rig.state != null) {
+        states[rig.state] = (states[rig.state] || 0) + dt;
+        heard(d.states[rig.state]);
+      }
+      rig.layers.forEach((l, i) => {
+        if (l.state == null) return;
+        layers[i][l.state] = (layers[i][l.state] || 0) + dt;
+        heard(((d.layers[i] || {}).states || {})[l.state]);
+      });
+      for (const k in d.rest) see(k, rig.v(k));
+      for (const k in rig.pose) see(k, rig.pose[k]);
+      for (const k in rig.slots) {
+        const v = rig.slots[k] == null ? '(nothing)' : String(rig.slots[k]);
+        (slots[k] = slots[k] || {})[v] = true;
+      }
+      for (const e of rig.events) counts[e.name] = (counts[e.name] || 0) + 1;
+    }
+    for (; si < script.length; si++)
+      problems.push(`a script step at ${script[si].at} s is after the end of the run (${secs} s)`);
+    // what played: a state's clip (a blend's clips once the input gave them weight), and each one-shot fired
+    const played = {};
+    const mark = (n, how) => {
+      if (!(n in d.clips)) return;
+      const p = played[n] || (played[n] = { state: false, shots: 0 });
+      if (how === 'state') p.state = true;
+      else p.shots++;
+    };
+    for (const n in inState) mark(n, 'state');
+    for (const e of log) if (e[0] === '!') mark(e.slice(1), 'shot');
+    const never = {
+      clips: Object.keys(d.clips).filter((n) => !played[n]),
+      states: Object.keys(d.states).filter((n) => !states[n]),
+      reactions: Object.keys(d.on || {}).filter((n) => !sent[n] && !log.includes('@' + n)),
+      still: [],
+    };
+    const channels = {},
+      bad = [];
+    for (const k of Object.keys(ch).sort()) {
+      const c = ch[k],
+        moved = c.max - c.min > 1e-6;
+      channels[k] = {
+        rest: c.rest,
+        min: c.min === Infinity ? null : r3(c.min),
+        max: c.max === -Infinity ? null : r3(c.max),
+        moved,
+      };
+      if (c.bad) bad.push(k);
+      else if (!moved && k in d.rest) never.still.push(k);
+    }
+    for (const k of bad)
+      problems.push(`${k} is not a number at some frame (a key, a spring or an input gave NaN or Infinity)`);
+    const notes = [];
+    if (never.clips.length)
+      notes.push(
+        `Never played in this run: ${never.clips.join(', ')} (no state, input, event or script step played them).`,
+      );
+    if (never.states.length) notes.push(`States never reached: ${never.states.join(', ')}.`);
+    if (never.reactions.length)
+      notes.push(
+        `Reactions never sent: ${never.reactions.join(', ')} (add { at, event } steps to the script to see them).`,
+      );
+    if (never.still.length) notes.push(`Channels of the rest pose that nothing moved: ${never.still.join(', ')}.`);
+    const ok = !rig.warnings.length && !problems.length,
+      plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+    const span = (o2) =>
+      Object.keys(o2)
+        .map((k) => `${k} ${r3(o2[k])} s`)
+        .join(', ');
+    const L = [
+      `${o.name || 'rig'}: ${secs} s at ${fps} frames a second, seed ${o.seed || 1}, ${plural(script.length, 'script step')}`,
+    ];
+    for (const w of rig.warnings) L.push('FAIL    ' + w);
+    for (const p of problems) L.push('FAIL    ' + p);
+    if (ok) L.push('pass    no mistake in the definition, every channel is a number on every frame');
+    if (Object.keys(states).length) L.push('states  ' + span(states));
+    layers.forEach((x, i) => Object.keys(x).length && L.push(`layer ${i} ` + span(x)));
+    const pl = Object.keys(played).map(
+      (n) => n + (played[n].state ? ' (state)' : '') + (played[n].shots ? ' x' + played[n].shots : ''),
+    );
+    if (pl.length) L.push('played  ' + pl.join(', '));
+    if (Object.keys(counts).length)
+      L.push(
+        'events  ' +
+          Object.keys(counts)
+            .map((k) => k + ' x' + counts[k])
+            .join(', '),
+      );
+    const mv = Object.keys(channels).filter((k) => channels[k].moved);
+    if (mv.length) L.push('moved   ' + mv.map((k) => `${k} ${channels[k].min}..${channels[k].max}`).join(', '));
+    const sl = Object.keys(slots).map((k) => k + ': ' + Object.keys(slots[k]).join(' / '));
+    if (sl.length) L.push('slots   ' + sl.join(', '));
+    for (const n of notes) L.push('note    ' + n);
+    L.push(
+      `${ok ? 'ok' : 'not ok'}: ${plural(rig.warnings.length + problems.length, 'fail')}, ${plural(notes.length, 'note')}`,
+    );
+    const map = (o2) => Object.fromEntries(Object.keys(o2).map((k) => [k, r3(o2[k])]));
+    return {
+      ok,
+      name: o.name || 'rig',
+      seconds: secs,
+      warnings: rig.warnings.slice(),
+      problems,
+      notes,
+      states: map(states),
+      layers: layers.map(map),
+      played,
+      never,
+      channels,
+      events: counts,
+      slots: Object.fromEntries(Object.keys(slots).map((k) => [k, Object.keys(slots[k])])),
+      text: L.join('\n'),
+    };
+  }
+  return { create, audience, ease: E, sample, bones, phys, mesh, lab, expose, report, version: '3.9.0' };
 });

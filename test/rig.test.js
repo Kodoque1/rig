@@ -235,6 +235,22 @@ console.warn = (...a) => warned.push(a.join(' '));   // the rig warns once on pu
     check('every block of a definition is optional (a rest pose and a breath is a rig, so is {}), and names that point nowhere are listed in r.warnings',
       r.v('a') !== 1 && e.state === null && r.warnings.length === 0 && q.warnings.length === 4, JSON.stringify(q.warnings));
   }
+  {
+    const def = { rest: { 'b.sy': 1, 'e.open': 1, 'hat.rot': 0, brow: 0, still: 2 },
+      clips: { calm: { dur: 2, loop: true, tracks: { 'b.sy': [[0, 1], [1, 1.04], [2, 1]] } }, scared: { dur: 0.4, loop: true, tracks: { brow: [[0, 1], [0.4, 1]] } },
+        blink: { dur: 0.16, tracks: { 'e.open': [[0, 0], [0.07, -1], [0.16, 0]] } }, ouch: { dur: 0.5, tracks: { 'b.sy': [[0, 0], [0.1, -0.2], [0.5, 0]], 'slot:mouth': [[0, 'o']] }, events: [[0.1, 'thud']] }, wave: { dur: 1, tracks: {} } },
+      states: { mood: { blend: 'fear', clips: [[0, 'calm'], [1, 'scared']] }, down: 'calm' }, machine: [['*', 'down', (i) => i.hp < 0]],
+      auto: { blink: [1.5, 4] }, springs: { 'hat.rot': { k: 160, d: 8 } }, slots: { mouth: 'smile' }, on: { hit: { fire: 'ouch', kick: { 'hat.rot': 6 } }, cheer: 'wave' } };
+    const quiet = Rig.report(def), full = Rig.report(def, { name: 'pip', script: [{ at: 1, event: 'hit' }, { at: 2, inputs: { fear: 1 } }, { at: 3, go: 'down' }] }), again = Rig.report(def, { name: 'pip', script: [{ at: 1, event: 'hit' }, { at: 2, inputs: { fear: 1 } }, { at: 3, go: 'down' }] });
+    check(`Rig.report plays a definition without a screen: left alone it says what never played (${quiet.never.clips.join(', ')}) and what never moved (${quiet.never.still.join(', ')}); with a script the hit plays its clip once, fires its clip event, moves the spring, swaps the slot, the input brings the blend's second clip in, and the same call gives the same report`,
+      quiet.ok && quiet.never.clips.join() === 'scared,ouch,wave' && quiet.never.reactions.join() === 'hit,cheer' && quiet.never.states.join() === 'down' && quiet.never.still.join() === 'brow,hat.rot,still' && quiet.played.calm.state && quiet.played.blink.shots >= 1 &&
+      full.ok && full.played.ouch.shots === 1 && full.events.thud === 1 && full.channels['hat.rot'].moved && full.slots.mouth.join() === 'smile,o' && full.played.scared.state && full.never.clips.join() === 'wave' && full.states.mood === 3 && full.states.down === 3 &&
+      /^pip: 6 s/.test(full.text) && /\nok: 0 fails, \d notes?$/.test(full.text) && full.text === again.text, JSON.stringify([quiet.never, full.never, full.states, full.text]));
+    const bad = Rig.report(Object.assign({}, def, { states: { mood: 'clam' }, machine: [] }), { seconds: 2, script: [{ at: 0.5, event: 'hitt' }, { at: 1, fire: 'nope' }, { at: 1, go: 'gone' }, { at: 5, fire: 'blink' }] });
+    const nan = Rig.report({ rest: { a: 0 }, clips: { c: { dur: 1, loop: true, tracks: { a: [[0, NaN], [1, NaN]] } } }, states: { c: 'c' } }, { seconds: 1 });
+    check(`Rig.report is not ok on a mistake: a name that points nowhere in the definition, a script step that names an event, a clip or a state the rig does not have, a step after the end (${bad.warnings.length} + ${bad.problems.length} fails), a channel that is not a number`,
+      !bad.ok && bad.warnings.length === 1 && bad.problems.length === 4 && /FAIL    state mood plays clip clam/.test(bad.text) && /not ok: 5 fails/.test(bad.text) && !nan.ok && /a is not a number/.test(nan.problems[0]), JSON.stringify([bad.warnings, bad.problems, nan.problems]));
+  }
   const bad = results.filter((x) => !x.ok).length;
   console.log(bad ? `${bad} of ${results.length} checks FAILED` : `${results.length} checks pass`);
   process.exit(bad ? 1 : 0);

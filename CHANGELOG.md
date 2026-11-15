@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.9.0
+
+- `Rig.report(def, { seconds, script })` and the `rig report <module>` command: a definition played without a screen and
+  read back in text (what moved, what played, what never did), with an exit code. Made for a coding agent, which cannot
+  see the animation, and for a test.
+- `AGENTS.md`: the library for a coding agent, in one page.
+- `examples/blob.rig.mjs`: the tutorial's character as a module of its own, with a script.
+
 ## 3.8.0
 
 First public release.

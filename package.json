@@ -1,7 +1,7 @@
 {
   "name": "@kodoque1/rig",
-  "version": "3.8.0",
-  "description": "A small animation rig for 2D characters that react: clips, a state machine, one-shots, springs, gaze, IK. One file, no dependency, any renderer.",
+  "version": "3.9.0",
+  "description": "A small animation rig for 2D characters that react: clips, a state machine, one-shots, springs, gaze, IK. One file, no dependency, any renderer. Made to be driven by a coding agent: a definition is read back in text, without a screen.",
   "keywords": [
     "animation",
     "rig",
@@ -11,7 +11,9 @@
     "character",
     "state-machine",
     "ik",
-    "procedural-animation"
+    "procedural-animation",
+    "agents",
+    "ai-agents"
   ],
   "license": "MIT",
   "repository": {
@@ -36,15 +38,20 @@
     "rig.js",
     "rig.mjs",
     "rig.d.ts",
+    "bin",
     "docs",
     "examples",
     "README.md",
+    "AGENTS.md",
     "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {
     "build": "node scripts/build.js",
-    "test": "node scripts/build.js --check && node test/rig.test.js && node test/esm.test.mjs",
+    "test": "node scripts/build.js --check && node test/rig.test.js && node test/esm.test.mjs && node test/cli.test.js",
     "test:types": "npx -p typescript@5 tsc --noEmit --strict --target es2020 --moduleResolution node test/types.test.ts"
+  },
+  "bin": {
+    "rig": "bin/rig.js"
   }
 }

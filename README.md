@@ -4,6 +4,10 @@ A small animation rig for 2D characters that react. One file, no dependency, any
 
 **[Try it in the playground](https://kodoque1.github.io/rig/)**: the definition on one side, the character on the other.
 
+**Made to be used by a coding agent** as much as by a person: a character is plain data an agent can write, and
+`rig report` plays it without a screen and reads it back in text, so an agent that cannot see the animation can still
+check it. Point your agent at [AGENTS.md](AGENTS.md).
+
 You describe a character as data: a rest pose, a few keyframed clips, and what makes it change. The rig computes the
 numbers each frame. You draw them with whatever you already draw with: canvas, SVG, WebGL, Pixi, the DOM.
 
@@ -83,7 +87,32 @@ Each line links to its section in the [API reference](docs/api.md).
 - [An audience](docs/api.md#an-audience): a crowd that reacts in a ripple, looks at what happened and remembers it. See [examples/05-audience.html](examples/05-audience.html).
 - [Meshes](docs/api.md#meshes): one picture bent by bones. See [examples/06-mesh.html](examples/06-mesh.html).
 - [A body that weighs](docs/api.md#a-body-that-weighs): a small solver that poses a body from gravity and what holds it.
+- [Without a screen](docs/api.md#without-a-screen): `Rig.report` and `rig report` play a definition in Node and read it back in text.
 - [The lab](docs/api.md#the-lab): add `?rig` to your page's URL for a live panel with every input, state and one-shot.
+
+## With a coding agent
+
+An agent can write a definition, but it cannot watch the result. `rig report` is its eyes: it plays the definition in
+Node and says what moved, what played and what never did, with an exit code.
+
+```sh
+npx rig report hero.rig.mjs --script hero.script.json     # add --json for data
+```
+
+```
+blob: 6 s at 60 frames a second, seed 1, 4 script steps
+pass    no mistake in the definition, every channel is a number on every frame
+states  mood 6 s
+played  calm (state), scared (state), jump x1, blink x2
+moved   body.sx 1..1.1, body.sy 0.672..1.048, body.y -45.995..0, brow 0..1, eye.open 0.005..1, ...
+slots   mouth: smile / worry / open
+note    Channels of the rest pose that nothing moved: body.x.
+ok: 0 fails, 1 note
+```
+
+[AGENTS.md](AGENTS.md) is the library in one page for an agent: the loop above, the definition block by block, the
+mistakes that cost a round, and five lines to paste into your project's own agent instructions. It ships in the
+package (`node_modules/@kodoque1/rig/AGENTS.md`). The same report works in a test: `Rig.report(def, { script }).ok`.
 
 ## Examples and playground
 
@@ -119,7 +148,7 @@ page.
 ## Develop
 
 ```sh
-npm test            # the checks, in plain Node, no dependency
+npm test            # the checks, in plain Node, no dependency (the library, the module, the command)
 npm run build       # regenerate rig.mjs after editing rig.js
 ```
 

@@ -4,7 +4,7 @@ Everything in `rig.js`, in the order you are likely to need it. Types for all of
 
 - [Rig.create](#rigcreate) · [The update, step by step](#the-update-step-by-step)
 - Definition: [rest](#rest) · [clips](#clips) · [states and machine](#states-and-machine) · [layers](#layers) · [auto](#auto) · [alive](#alive) · [springs](#springs) · [look](#look) · [events and reactions](#events-and-reactions) · [varied takes](#varied-takes) · [slots and draw order](#slots-and-draw-order) · [constraints](#constraints) · [clip events](#clip-events) · [your own controller](#your-own-controller) · [cartoon acting](#cartoon-acting) · [meshes](#meshes)
-- Beside the rig: [bones](#bones) · [an audience](#an-audience) · [a body that weighs](#a-body-that-weighs) · [the lab](#the-lab)
+- Beside the rig: [bones](#bones) · [an audience](#an-audience) · [a body that weighs](#a-body-that-weighs) · [without a screen](#without-a-screen) · [the lab](#the-lab)
 
 Conventions: times are in seconds, angles in radians. Angles follow the canvas: 0 points along +x and positive turns
 clockwise, because y points down. A character facing left mirrors its x when drawing.
@@ -385,6 +385,48 @@ true arc. Fixed 120 Hz steps, so the same inputs give the same motion.
 | `com()`, `vel()` | Centre of mass and its velocity. |
 | `launch(vx, vy)`, `place(dx, dy)` | Throw the body; shift it. |
 | `frame(hipL, hipR, shL, shR)` | `{ x, y, rot }` for the character's frame. IK constraints then reach the holds from there. |
+
+### Without a screen
+
+```js
+const r = Rig.report(def, { seconds: 6, script: [{ at: 1, event: 'poke' }, { at: 2, inputs: { fear: 1 } }] });
+r.ok; // false when the definition has a mistake
+console.log(r.text);
+```
+
+```sh
+npx rig report examples/blob.rig.mjs --script examples/blob.script.json
+```
+
+```
+blob: 6 s at 60 frames a second, seed 1, 4 script steps
+pass    no mistake in the definition, every channel is a number on every frame
+states  mood 6 s
+played  calm (state), scared (state), jump x1, blink x2
+moved   body.sx 1..1.1, body.sy 0.672..1.048, body.y -45.995..0, brow 0..1, eye.open 0.005..1, eye.x -1.821..8.756, eye.y -0.265..0.905, head.rot -0.036..0.175, tuft.rot -0.035..0.086
+slots   mouth: smile / worry / open
+note    Channels of the rest pose that nothing moved: body.x.
+ok: 0 fails, 1 note
+```
+
+The definition is played in Node for a few seconds and read back: the time spent in each state, the clips that played
+(as a state's clip, or how many times as a one-shot), the clip events, each channel's lowest and highest value, what
+each slot showed. It is how a test, a CI job or a coding agent checks a character that nobody is looking at.
+
+- **Fails** (`ok` is false, the command exits 1): everything in `rig.warnings`, a channel that is `NaN` or infinite
+  on some frame, a script step that names an event, a clip or a state the rig does not have.
+- **Notes** (never a failure): clips that never played, states never reached, reactions never sent, channels of the
+  rest pose that nothing moved. Often a mistake, sometimes the design: a channel the game drives itself never moves here.
+- **The script** is a list of steps, each at its time in seconds. A step may carry `event` (+ `data`), `inputs`,
+  `fire`, `go` (+ `fade`), `look` (`[x, y]` or `null`), `feed`, `set`, `attach` (`[slot, name, seconds?]`), `skin`,
+  `kick` (`{ channel: velocity }`).
+- **Options**: `seconds` (6), `fps` (60), `seed` (1), `name` (the first line's label).
+- **The result**: `{ ok, text, warnings, problems, notes, states, layers, played, never, channels, events, slots }`.
+  `rig report --json` prints it without `text`.
+
+The command needs the definition in a module of its own (`export default { ... }`, or `module.exports`; `--export
+NAME` for a named export), with no page code around it. `--quiet` keeps the fails and the last line. It exits 0 when
+the definition has no mistake, 1 when it has one, 2 when it could not run.
 
 ### The lab
 

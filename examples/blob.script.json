@@ -1,0 +1,6 @@
+[
+  { "at": 1, "look": [1, 0] },
+  { "at": 2, "inputs": { "fear": 1 } },
+  { "at": 3, "event": "poke" },
+  { "at": 4, "inputs": { "fear": 0 }, "look": null }
+]

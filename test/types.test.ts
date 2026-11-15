@@ -12,4 +12,6 @@ const r = create(def, 2);
 r.update(1 / 60).lookAt(0.5, 0);
 const n: number = r.v('body.sy');
 Rig.expose('hero', r).event('poke', { scale: 2 });
-export { n };
+const rep = Rig.report(def, { seconds: 2, script: [{ at: 1, event: 'poke' }, { at: 1.5, look: null }] });
+const fine: boolean = rep.ok && rep.channels['body.sy'].moved && rep.never.clips.length === 0;
+export { n, fine };

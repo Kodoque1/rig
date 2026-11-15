@@ -206,6 +206,46 @@ It is the fastest way to tune a character: change a number in the definition, re
 Mistakes in a definition do not fail silently either. After `Rig.create`, look at `rig.warnings`: a state that names
 a clip that does not exist, a transition to an unknown state, a clip that keys an undeclared slot are all listed.
 
+## Check it without looking
+
+Move the definition to a file of its own and it can be played with no page at all:
+
+```js
+// blob.rig.mjs
+export default { rest: { /* ... */ }, clips: { /* ... */ }, states: { /* ... */ } };
+```
+
+```sh
+npx rig report blob.rig.mjs
+```
+
+```
+blob: 6 s at 60 frames a second, seed 1, 0 script steps
+pass    no mistake in the definition, every channel is a number on every frame
+states  mood 6 s
+played  calm (state), blink x2
+moved   body.sy 0.981..1.037, eye.open 0.005..1, eye.x -1.821..2.756, eye.y -0.265..1.615, head.rot -0.036..0.055
+slots   mouth: smile
+note    Never played in this run: scared, jump (no state, input, event or script step played them).
+note    Reactions never sent: poke (add { at, event } steps to the script to see them).
+note    Channels of the rest pose that nothing moved: body.sx, body.x, body.y, brow, tuft.rot.
+ok: 0 fails, 3 notes
+```
+
+Left alone for six seconds, the character breathed and blinked twice; nobody scared it or poked it, and the report says
+so. A script says what happens during the run (`--script blob.script.json`):
+
+```json
+[
+  { "at": 2, "inputs": { "fear": 1 } },
+  { "at": 3, "event": "poke" }
+]
+```
+
+Now `scared` and `jump` play, and the notes go. The command exits 1 when the definition has a mistake, so it fits a
+test or a CI job, and it is how a coding agent, which cannot see the character, checks its own work:
+[AGENTS.md](../AGENTS.md).
+
 ## Where to go next
 
 - A second machine over the first one, such as a talking face over a walking body: [layers](api.md#layers).

@@ -232,6 +232,7 @@ rig.update(dt);
 rig.v('body.sy');</pre></div>
     </div>
     <ul class="facts">
+      <li><strong>Made for a coding agent.</strong> <code>npx rig report hero.rig.mjs</code> plays a definition without a screen and reads it back in text: what moved, what played, what never did. An agent that cannot see the character can still check it. <a href="https://github.com/Kodoque1/rig/blob/main/AGENTS.md">AGENTS.md</a> is the library in one page.</li>
       <li><strong>Deterministic.</strong> Each rig has its own seeded dice and never reads <code>Math.random</code>: the same seed and the same updates give the same pose.</li>
       <li><strong>Read-only toward your game.</strong> The rig writes its own pose and nothing else. Turning it off cannot change a game's outcome.</li>
       <li><strong>Typos are reported.</strong> <code>rig.warnings</code> lists a state that names a missing clip or a transition to nowhere. Try one in the editor above.</li>
@@ -244,6 +245,7 @@ rig.v('body.sy');</pre></div>
     <a href="https://github.com/Kodoque1/rig#readme">README</a>
     <a href="https://github.com/Kodoque1/rig/blob/main/docs/tutorial.md">Tutorial</a>
     <a href="https://github.com/Kodoque1/rig/blob/main/docs/api.md">API reference</a>
+    <a href="https://github.com/Kodoque1/rig/blob/main/AGENTS.md">For agents</a>
     <a href="https://github.com/Kodoque1/rig/tree/main/examples">Examples</a>
   </footer>
 </div>
