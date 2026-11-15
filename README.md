@@ -2,6 +2,8 @@
 
 A small animation rig for 2D characters that react. One file, no dependency, any renderer.
 
+**[Try it in the playground](https://kodoque1.github.io/rig/)**: the definition on one side, the character on the other.
+
 You describe a character as data: a rest pose, a few keyframed clips, and what makes it change. The rig computes the
 numbers each frame. You draw them with whatever you already draw with: canvas, SVG, WebGL, Pixi, the DOM.
 
@@ -85,10 +87,18 @@ Each line links to its section in the [API reference](docs/api.md).
 
 ## Examples and playground
 
-Open [playground/index.html](playground/index.html) from disk for the tutorial as a live editor: the definition on one
-side, the character on the other, and every channel the rig outputs traced underneath.
+[The playground](https://kodoque1.github.io/rig/) is the tutorial as a live editor: the definition on one side, the
+character on the other, and every channel the rig outputs traced underneath. It is
+[playground/index.html](playground/index.html) in this repository, and opens from disk too.
 
-The files in `examples/` also open straight from disk. Each is one self-contained page.
+The files in `examples/` are live as well
+([hello](https://kodoque1.github.io/rig/examples/01-hello.html),
+[character](https://kodoque1.github.io/rig/examples/02-character.html),
+[reach](https://kodoque1.github.io/rig/examples/03-reach.html),
+[walk](https://kodoque1.github.io/rig/examples/04-walk.html),
+[audience](https://kodoque1.github.io/rig/examples/05-audience.html),
+[mesh](https://kodoque1.github.io/rig/examples/06-mesh.html)) and open straight from disk. Each is one self-contained
+page.
 
 | File | Shows |
 |---|---|
