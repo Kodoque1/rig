@@ -1,0 +1,54 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rig.js: a crowd that watches</title>
+<link rel="stylesheet" href="style.css">
+<canvas id="c" width="480" height="360"></canvas>
+<p>Click or tap anywhere. Each watcher hears of it when the news reaches it, looks that way, and reacts with a take it did
+  not just play. Keep clicking: they remember, and grow wary.</p>
+<script src="../rig.js"></script>
+<script>
+  const def = {
+    rest: { 'body.sy': 1, 'body.sx': 1, 'body.y': 0, 'eye.x': 0, 'eye.y': 0, 'eye.open': 1 },
+    clips: {
+      calm: { dur: 1, loop: true, tracks: {} },
+      wary: { dur: 1, loop: true, tracks: { 'body.sy': [[0, 0.8], [1, 0.8]], 'body.sx': [[0, 1.12], [1, 1.12]] } },
+      blink: { dur: 0.16, tracks: { 'eye.open': [[0, 0], [0.07, -1], [0.16, 0]] } },
+      hop: { dur: 0.4, tracks: { 'body.y': [[0, 0], [0.15, -14, 'out'], [0.4, 0, 'in']] } },
+      squash: { dur: 0.5, tracks: { 'body.sy': [[0, 0], [0.1, -0.3, 'out'], [0.5, 0, 'back']], 'body.sx': [[0, 0], [0.1, 0.2, 'out'], [0.5, 0, 'back']] } },
+      wide: { dur: 0.7, tracks: { 'eye.open': [[0, 0], [0.08, 0.5, 'out'], [0.5, 0.5], [0.7, 0]] } },
+    },
+    states: { mood: { blend: 'wary', clips: [[0, 'calm'], [1, 'wary']] } }, smooth: { wary: 3 },
+    auto: { blink: [1.5, 5] }, alive: { 'body.sy': [0.03, 2.5] },
+    look: { x: 'eye.x', y: 'eye.y', range: 2.6 },
+    // a varied take: one of these, never the same twice in a row; `when` reads the event's data (dist is added by the audience)
+    on: { gasp: { take: ['hop', 'squash', { clip: 'wide', when: (d) => d.dist > 120 }] } },
+  };
+  const crowd = Rig.audience({ speed: 420, look: 1.2, memory: { life: 6, full: 4, input: 'wary' } });
+  const who = [];
+  for (let j = 0; j < 4; j++) for (let i = 0; i < 7; i++) {
+    const x = 54 + i * 62 + (j % 2) * 20, y = 110 + j * 66;
+    who.push(crowd.add(Rig.create(def, 1 + who.length), x, y));               // a seed each: no two blink together
+  }
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d'), rings = [];
+  cv.addEventListener('pointerdown', (e) => { const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) * 480 / r.width, y = (e.clientY - r.top) * 360 / r.height;
+    crowd.react(x, y, 'gasp'); rings.push({ x, y, t: 0 }); });
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    crowd.update(dt);                                                         // the audience first, then each rig
+    ctx.clearRect(0, 0, 480, 360);
+    for (const g of rings) { g.t += dt; ctx.strokeStyle = 'rgba(255,107,94,' + Math.max(0, 0.7 - g.t * 0.6) + ')'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(g.x, g.y, g.t * crowd.speed, 0, 7); ctx.stroke(); }
+    while (rings.length && rings[0].t > 1.4) rings.shift();
+    for (const m of who) { const r = m.rig; r.update(dt);
+      ctx.save(); ctx.translate(m.x, m.y + r.v('body.y')); ctx.scale(r.v('body.sx'), r.v('body.sy'));
+      ctx.fillStyle = '#f4b740'; ctx.beginPath(); ctx.ellipse(0, -18, 20, 18, 0, 0, 7); ctx.fill();
+      const open = Math.max(0.08, r.v('eye.open'));
+      for (const x of [-7, 7]) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(x, -22, 5, 5 * open, 0, 0, 7); ctx.fill();
+        ctx.fillStyle = '#0f1c29'; ctx.beginPath(); ctx.arc(x + r.v('eye.x'), -22 + r.v('eye.y') * Math.min(1, open), 2.2, 0, 7); ctx.fill(); }
+      ctx.restore(); }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>

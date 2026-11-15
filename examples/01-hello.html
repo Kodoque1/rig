@@ -1,0 +1,32 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rig.js: hello</title>
+<link rel="stylesheet" href="style.css">
+<canvas id="c" width="480" height="360"></canvas>
+<p>The whole quickstart: a rest pose, a breath and a blink. Nothing here is a loop you wrote.</p>
+<script src="../rig.js"></script>
+<script>
+  const rig = Rig.create({
+    rest: { 'body.sy': 1, 'eye.open': 1 },                       // named channels: any name, any number
+    clips: { blink: { dur: 0.16, tracks: { 'eye.open': [[0, 0], [0.07, -1], [0.16, 0]] } } },
+    auto: { blink: [1.5, 4] },                                   // fire "blink" every 1.5 to 4 s
+    alive: { 'body.sy': [0.03, 2.8] },                           // a breath: amplitude, period in seconds
+  });
+
+  const ctx = document.getElementById('c').getContext('2d');
+  let last = performance.now();
+  function frame(now) {
+    rig.update((now - last) / 1000); last = now;                 // 1. advance the rig
+    ctx.clearRect(0, 0, 480, 360);
+    ctx.save(); ctx.translate(240, 300); ctx.scale(1, rig.v('body.sy'));   // 2. read the pose, draw as you like
+    ctx.fillStyle = '#f4b740'; ctx.beginPath(); ctx.ellipse(0, -70, 80, 70, 0, 0, 7); ctx.fill();
+    for (const x of [-28, 28]) {
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(x, -90, 16, 16 * Math.max(0.08, rig.v('eye.open')), 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#0f1c29'; ctx.beginPath(); ctx.arc(x, -90, 6, 0, 7); ctx.fill();
+    }
+    ctx.restore();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>

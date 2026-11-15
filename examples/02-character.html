@@ -1,0 +1,83 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rig.js: a character that reacts</title>
+<link rel="stylesheet" href="style.css">
+<canvas id="c" width="480" height="360"></canvas>
+<p>Move the pointer close: it gets nervous. Click or tap: it jumps. Add <a href="?rig">?rig</a> to the URL for the lab.
+  This is the character the <a href="../docs/tutorial.md">tutorial</a> builds.</p>
+<script src="../rig.js"></script>
+<script>
+  const def = {
+    rest: { 'body.x': 0, 'body.y': 0, 'body.sx': 1, 'body.sy': 1, 'eye.x': 0, 'eye.y': 0, 'eye.open': 1, brow: 0, 'tuft.rot': 0, 'head.rot': 0 },
+    clips: {
+      // a state's clip gives values; a one-shot's clip gives offsets added on top
+      calm: { dur: 2, loop: true, tracks: { 'body.sy': [[0, 1], [1, 1.02], [2, 1]] } },
+      scared: { dur: 0.4, loop: true, tracks: {
+        'body.sy': [[0, 0.88], [0.2, 0.84], [0.4, 0.88]], 'body.sx': [[0, 1.1], [0.4, 1.1]], brow: [[0, 1], [0.4, 1]],
+        'slot:mouth': [[0, 'worry']] } },
+      blink: { dur: 0.16, tracks: { 'eye.open': [[0, 0], [0.07, -1], [0.16, 0]] } },
+      jump: { dur: 0.5, tracks: {
+        'body.y': [[0, 0], [0.18, -46, 'out'], [0.5, 0, 'in']],
+        'body.sy': [[0, 0], [0.08, -0.2], [0.2, 0.15], [0.5, 0, 'back']],
+        'slot:mouth': [[0, 'open']] } },
+    },
+    states: { mood: { blend: 'fear', clips: [[0, 'calm'], [1, 'scared']] } },   // one state, blended by the input "fear"
+    smooth: { fear: 6 },                                         // how fast the blend follows its input, per second
+    auto: { blink: [1.5, 4] },
+    alive: { 'body.sy': [0.02, 2.8] },
+    springs: { 'tuft.rot': { k: 120, d: 6, gain: 0.1 } },        // secondary motion: kicked by events, settles by itself
+    look: { x: 'eye.x', y: 'eye.y', head: 'head.rot', range: 6, head_gain: 0.12 },
+    slots: { mouth: 'smile' },                                   // whole drawings swapped by name
+    on: { poke: { fire: 'jump', kick: { 'tuft.rot': 14 }, mark: ['bang', 0.6] } },   // what an event does
+  };
+  const rig = Rig.expose('blob', Rig.create(def));               // expose() names it for the lab (?rig)
+
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d'), HOME = [240, 300];
+  let pointer = null;
+  const at = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * 480 / r.width, (e.clientY - r.top) * 360 / r.height]; };
+  cv.addEventListener('pointermove', e => { pointer = at(e); });
+  cv.addEventListener('pointerleave', () => { pointer = null; });
+  cv.addEventListener('pointerdown', e => { pointer = at(e); rig.event('poke'); });
+
+  function draw(r) {
+    const v = r.v, mouth = r.slot('mouth');
+    ctx.save(); ctx.translate(HOME[0] + v('body.x'), HOME[1] + v('body.y')); ctx.scale(v('body.sx'), v('body.sy'));
+    ctx.save(); ctx.translate(0, -138); ctx.rotate(v('tuft.rot'));           // the tuft, on its spring
+    ctx.strokeStyle = '#c98a1e'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(10, -22, -6, -34); ctx.stroke(); ctx.restore();
+    ctx.fillStyle = '#f4b740'; ctx.beginPath(); ctx.ellipse(0, -70, 80, 70, 0, 0, 7); ctx.fill();
+    ctx.save(); ctx.translate(0, -84); ctx.rotate(v('head.rot'));             // the face turns a little with the gaze
+    const open = Math.max(0.08, Math.min(1.2, v('eye.open')));
+    for (const x of [-28, 28]) {
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(x, -6, 16, 16 * open, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#0f1c29'; ctx.beginPath(); ctx.ellipse(x + v('eye.x'), -6 + v('eye.y') * open, 6.5, 6.5 * Math.min(1, open + 0.2), 0, 0, 7); ctx.fill();
+    }
+    const b = v('brow');
+    if (b > 0.05) { ctx.strokeStyle = '#0f1c29'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(-44, -30 - 6 * b); ctx.lineTo(-14, -26 + 4 * b); ctx.moveTo(44, -30 - 6 * b); ctx.lineTo(14, -26 + 4 * b); ctx.stroke(); }
+    ctx.strokeStyle = '#0f1c29'; ctx.fillStyle = '#0f1c29'; ctx.lineWidth = 4; ctx.beginPath();
+    if (mouth === 'open') { ctx.ellipse(0, 28, 11, 14, 0, 0, 7); ctx.fill(); }
+    else if (mouth === 'worry') { ctx.arc(0, 40, 14, Math.PI + 0.5, -0.5); ctx.stroke(); }
+    else { ctx.arc(0, 18, 16, 0.4, Math.PI - 0.4); ctx.stroke(); }
+    ctx.restore(); ctx.restore();
+    for (const m of r.marks) {                                                // marks: drawn by you, timed by the rig
+      ctx.globalAlpha = 1 - m.t; ctx.fillStyle = '#ff6b5e'; ctx.font = '700 40px system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('!', HOME[0] + 70, HOME[1] - 150 - 20 * m.t); ctx.globalAlpha = 1;
+    }
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (pointer) {
+      const dx = pointer[0] - HOME[0], dy = pointer[1] - (HOME[1] - 80), d = Math.hypot(dx, dy);
+      rig.inputs.fear = Math.max(0, Math.min(1, (170 - d) / 90));             // close pointer: fear goes to 1
+      rig.lookAt(dx / 200, dy / 200);                                         // direction to the target, each axis -1..1
+    } else { rig.inputs.fear = 0; rig.lookAt(null); }                         // no target: the gaze wanders
+    rig.update(dt);
+    ctx.clearRect(0, 0, 480, 360);
+    ctx.fillStyle = '#20384f'; ctx.fillRect(0, 300, 480, 60);
+    draw(rig);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>

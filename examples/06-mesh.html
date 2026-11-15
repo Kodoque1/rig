@@ -1,0 +1,43 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rig.js: one picture, bent by bones</title>
+<link rel="stylesheet" href="style.css">
+<canvas id="c" width="480" height="360"></canvas>
+<p>One picture on a mesh of points, bent by five bones. The bones are plain channels, so a clip, a spring or your own code
+  moves them; here a clip sends a wave down the body and a bulge follows it.</p>
+<script src="../rig.js"></script>
+<script>
+  // the picture: any image or canvas. Here, a striped eel drawn once.
+  const pic = document.createElement('canvas'); pic.width = 320; pic.height = 56;
+  { const p = pic.getContext('2d'); p.fillStyle = '#f4b740'; p.beginPath(); p.roundRect(0, 6, 320, 44, 22); p.fill();
+    p.fillStyle = '#c98a1e'; for (let x = 60; x < 300; x += 34) p.fillRect(x, 6, 12, 44);
+    p.fillStyle = '#fff'; p.beginPath(); p.arc(24, 22, 9, 0, 7); p.fill(); p.fillStyle = '#0f1c29'; p.beginPath(); p.arc(22, 22, 4, 0, 7); p.fill(); }
+
+  const N = 5, LEN = 320 / N, bones = [], tracks = {};
+  for (let i = 0; i < N; i++) {
+    bones.push({ name: 'b' + i, at: [i * LEN, 28], to: [(i + 1) * LEN, 28] });
+    const ph = i / N;                                                          // each bone a little later than the one before
+    tracks['b' + i + '.rot'] = [0, 0.25, 0.5, 0.75, 1].map((u) => [u * 2, 0.32 * Math.sin((u - ph) * Math.PI * 2)]);
+    tracks['b' + i + '.sy'] = [0, 0.5, 1].map((u) => [u * 2, 1 + 0.18 * Math.max(0, Math.sin((u - ph) * Math.PI * 2))]);
+  }
+  const rig = Rig.create({
+    clips: { swim: { dur: 2, loop: true, tracks } }, states: { swim: 'swim' },
+    meshes: { eel: Object.assign(Rig.mesh.grid(0, 0, 320, 56, 16, 2), { bones }) },   // points and triangles over the picture
+  });
+
+  const ctx = document.getElementById('c').getContext('2d');
+  let last = performance.now(), show = true;
+  document.getElementById('c').addEventListener('pointerdown', () => { show = !show; });
+  function frame(now) {
+    rig.update(Math.min(0.1, (now - last) / 1000)); last = now;
+    ctx.clearRect(0, 0, 480, 360);
+    ctx.save(); ctx.translate(80, 150);
+    Rig.mesh.draw(ctx, pic, rig, 'eel');                                       // the picture, on this frame's points
+    if (show) { const P = rig.mesh('eel'); ctx.fillStyle = 'rgba(255,255,255,.55)'; for (let i = 0; i < P.length; i += 2) ctx.fillRect(P[i] - 1.5, P[i + 1] - 1.5, 3, 3); }
+    ctx.restore();
+    ctx.fillStyle = '#9fb4c8'; ctx.font = '13px system-ui, sans-serif'; ctx.fillText('click: mesh points ' + (show ? 'on' : 'off'), 14, 24);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>

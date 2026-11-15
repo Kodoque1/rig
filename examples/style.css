@@ -1,0 +1,6 @@
+/* shared by the example pages only: the rig needs none of it */
+html, body { margin: 0; height: 100%; background: #101c28; color: #dbe7f3; font: 15px/1.5 system-ui, sans-serif; }
+body { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px; box-sizing: border-box; }
+canvas { background: #17283a; border-radius: 12px; max-width: 100%; touch-action: none; }
+p { margin: 0; max-width: 480px; color: #9fb4c8; text-align: center; }
+a { color: #f4b740; }

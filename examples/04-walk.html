@@ -1,0 +1,56 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rig.js: steps that come from the animation</title>
+<link rel="stylesheet" href="style.css">
+<canvas id="c" width="480" height="360"></canvas>
+<p>Hold the pointer down (or a key) to run. The walker moves only when a foot lands: each <code>step</code> is an event keyed in
+  the clip, so retiming the animation retimes the game, and the walk hands its stride to the run without a double step.</p>
+<script src="../rig.js"></script>
+<script>
+  const swing = (a) => [[0, a], [0.25, 0], [0.5, -a], [0.75, 0], [1, a]];        // one stride, as keys over a cycle of 1
+  const scale = (keys, dur) => keys.map(([t, v]) => [t * dur, v]);
+  const cycle = (dur, a, bob) => ({ dur, loop: true,
+    tracks: { 'legL.rot': scale(swing(a), dur), 'legR.rot': scale(swing(-a), dur), 'body.y': scale([[0, 0], [0.25, -bob], [0.5, 0], [0.75, -bob], [1, 0]], dur) },
+    events: [[0.25 * dur, 'step', { foot: 'L' }], [0.75 * dur, 'step', { foot: 'R' }]] });   // the moments the game acts on
+  const rig = Rig.create({
+    rest: { 'legL.rot': 0, 'legR.rot': 0, 'body.y': 0, 'body.rot': 0, 'tail.rot': 0 },
+    clips: { walk: cycle(0.8, 0.5, 4), run: cycle(0.44, 0.85, 9) },
+    states: { walk: 'walk', run: 'run' },
+    machine: [['walk', 'run', (i) => i.hurry > 0.5, 0.2], ['run', 'walk', (i) => i.hurry <= 0.5, 0.25]],   // from, to, condition, crossfade
+    sync: [['walk', 'run']],                                                    // they share a phase: no foot lands twice
+    springs: { 'tail.rot': { k: 90, d: 6, gain: 0.08 } },
+  });
+
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  let x = 60, target = 60; const prints = [];
+  const hurry = (on) => { rig.inputs.hurry = on ? 1 : 0; };
+  cv.addEventListener('pointerdown', () => hurry(true)); addEventListener('pointerup', () => hurry(false));
+  addEventListener('keydown', () => hurry(true)); addEventListener('keyup', () => hurry(false));
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    rig.update(dt);
+    for (const e of rig.events) if (e.name === 'step') {                         // what the playhead passed this frame
+      target += rig.state === 'run' ? 46 : 26; rig.kick('tail.rot', rig.state === 'run' ? 7 : 3);
+      prints.push({ x: target + (e.data.foot === 'L' ? -6 : 6), age: 0 });
+    }
+    x += (target - x) * (1 - Math.exp(-10 * dt));
+    if (x > 520) { x -= 580; target -= 580; prints.forEach(p => p.x -= 580); }
+    ctx.clearRect(0, 0, 480, 360);
+    ctx.fillStyle = '#20384f'; ctx.fillRect(0, 300, 480, 60);
+    for (const p of prints) { p.age += dt; ctx.globalAlpha = Math.max(0, 1 - p.age / 3); ctx.fillStyle = '#9fb4c8'; ctx.beginPath(); ctx.ellipse(p.x, 306, 9, 3, 0, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1; while (prints.length && prints[0].age > 3) prints.shift();
+    ctx.save(); ctx.translate(x, 300 + rig.v('body.y'));
+    for (const leg of ['legL', 'legR']) { ctx.save(); ctx.translate(0, -52); ctx.rotate(rig.v(leg + '.rot')); ctx.strokeStyle = leg === 'legL' ? '#c98a1e' : '#a87216'; ctx.lineWidth = 12; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 50 - rig.v('body.y')); ctx.stroke(); ctx.restore(); }
+    ctx.save(); ctx.translate(-30, -84); ctx.rotate(-0.6 + rig.v('tail.rot')); ctx.fillStyle = '#c98a1e'; ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(-34, 0); ctx.lineTo(0, 10); ctx.closePath(); ctx.fill(); ctx.restore();
+    ctx.fillStyle = '#f4b740'; ctx.beginPath(); ctx.ellipse(0, -90, 40, 44, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(18, -102, 10, 0, 7); ctx.fill(); ctx.fillStyle = '#0f1c29'; ctx.beginPath(); ctx.arc(21, -102, 4.5, 0, 7); ctx.fill();
+    ctx.fillStyle = '#f0703a'; ctx.beginPath(); ctx.moveTo(36, -96); ctx.lineTo(54, -90); ctx.lineTo(36, -84); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#9fb4c8'; ctx.font = '13px system-ui, sans-serif'; ctx.fillText(rig.state + ', ' + (rig.counts.step || 0) + ' steps', 14, 24);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>

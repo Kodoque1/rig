@@ -1,0 +1,50 @@
+{
+  "name": "@kodoque1/rig",
+  "version": "3.8.0",
+  "description": "A small animation rig for 2D characters that react: clips, a state machine, one-shots, springs, gaze, IK. One file, no dependency, any renderer.",
+  "keywords": [
+    "animation",
+    "rig",
+    "2d",
+    "canvas",
+    "game",
+    "character",
+    "state-machine",
+    "ik",
+    "procedural-animation"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kodoque1/rig.git"
+  },
+  "main": "./rig.js",
+  "module": "./rig.mjs",
+  "types": "./rig.d.ts",
+  "exports": {
+    ".": {
+      "types": "./rig.d.ts",
+      "import": "./rig.mjs",
+      "require": "./rig.js"
+    },
+    "./rig.js": "./rig.js"
+  },
+  "unpkg": "./rig.js",
+  "jsdelivr": "./rig.js",
+  "sideEffects": false,
+  "files": [
+    "rig.js",
+    "rig.mjs",
+    "rig.d.ts",
+    "docs",
+    "examples",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node scripts/build.js",
+    "test": "node scripts/build.js --check && node test/rig.test.js && node test/esm.test.mjs",
+    "test:types": "npx -p typescript@5 tsc --noEmit --strict --target es2020 --moduleResolution node test/types.test.ts"
+  }
+}

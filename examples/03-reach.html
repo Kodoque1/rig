@@ -1,0 +1,59 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rig.js: an arm that reaches</title>
+<link rel="stylesheet" href="style.css">
+<canvas id="c" width="480" height="360"></canvas>
+<p>Move the pointer: both hands reach for it and the head turns. The arms never cut across the face: an IK constraint with
+  an <code>avoid</code> circle picks the elbow side. You give a target; the rig solves the angles.</p>
+<script src="../rig.js"></script>
+<script>
+  const SH = 34, UP = 62, LOW = 58;   // shoulder half-width, upper arm, forearm
+  const rig = Rig.create({
+    rest: { 'armL.a1': 2.2, 'armL.a2': 0.4, 'armR.a1': 0.9, 'armR.a2': -0.4, 'head.rot': 0, 'body.sy': 1 },
+    alive: { 'body.sy': [0.015, 3] },
+    constraints: [
+      // two bones from a root reach a named target; bend picks the elbow side, avoid keeps the limb off the head
+      { ik: 'armL', bones: ['armL.a1', 'armL.a2'], lens: [UP, LOW], root: [-SH, -120], target: 'hand', bend: 1, avoid: [{ at: [0, -168], r: 40 }] },
+      { ik: 'armR', bones: ['armR.a1', 'armR.a2'], lens: [UP, LOW], root: [SH, -120], target: 'hand', bend: -1, avoid: [{ at: [0, -168], r: 40 }] },
+      // a channel turns to face the target, inside its limits
+      { aim: 'head.rot', root: [0, -168], target: 'hand', offset: -Math.PI / 2, limit: [-0.5, 0.5] },
+    ],
+  });
+
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d'), HOME = [240, 330];
+  let t = 0, pointer = null;
+  cv.addEventListener('pointermove', e => { const r = cv.getBoundingClientRect(); pointer = [(e.clientX - r.left) * 480 / r.width, (e.clientY - r.top) * 360 / r.height]; });
+  cv.addEventListener('pointerleave', () => { pointer = null; });
+
+  function arm(side, root) {
+    // forward kinematics for drawing: the same angles the constraint wrote, turned into points
+    const { pts } = Rig.bones.chain(root, [{ joint: 'a1', len: UP }, { joint: 'a2', len: LOW }], { a1: rig.v(side + '.a1'), a2: rig.v(side + '.a2') });
+    ctx.strokeStyle = '#c98a1e'; ctx.lineWidth = 16; ctx.lineCap = ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(...pts[0]); ctx.lineTo(...pts[1]); ctx.lineTo(...pts[2]); ctx.stroke();
+    ctx.fillStyle = '#fbe3a2'; ctx.beginPath(); ctx.arc(pts[2][0], pts[2][1], 11, 0, 7); ctx.fill();
+  }
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now; t += dt;
+    // the target lives in the character's own frame (the frame its channels draw in): the pointer, or a lazy figure of eight
+    const p = pointer ? [pointer[0] - HOME[0], pointer[1] - HOME[1]] : [Math.sin(t * 0.9) * 120, -170 + Math.sin(t * 1.8) * 70];
+    rig.target('hand', p[0], p[1]);
+    rig.update(dt);
+    ctx.clearRect(0, 0, 480, 360);
+    ctx.save(); ctx.translate(HOME[0], HOME[1]);
+    ctx.fillStyle = '#ff6b5e'; ctx.beginPath(); ctx.arc(p[0], p[1], 7, 0, 7); ctx.fill();
+    ctx.save(); ctx.scale(1, rig.v('body.sy'));
+    ctx.fillStyle = '#f4b740'; ctx.beginPath(); ctx.roundRect(-44, -136, 88, 150, 36); ctx.fill();
+    ctx.save(); ctx.translate(0, -168); ctx.rotate(rig.v('head.rot'));
+    ctx.beginPath(); ctx.arc(0, 0, 36, 0, 7); ctx.fill();
+    ctx.fillStyle = '#0f1c29'; for (const x of [-13, 13]) { ctx.beginPath(); ctx.arc(x, -4, 5, 0, 7); ctx.fill(); }
+    ctx.restore(); ctx.restore();
+    arm('armL', [-SH, -120]); arm('armR', [SH, -120]);
+    ctx.restore();
+    ctx.fillStyle = '#9fb4c8'; ctx.font = '13px system-ui, sans-serif';
+    ctx.fillText('reach ' + rig.reach.armL.toFixed(2) + (rig.reach.armL > 1 ? ' (out of reach: the arm points at it)' : ''), 14, 24);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>
